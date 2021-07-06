@@ -41,7 +41,7 @@
 
 ![](./assets/dinamica-do-sistema.png)
 
-### TEcnologias a serem utilizadas
+### Tecnologias a serem utilizadas
 
 * Bank: Golang
 
