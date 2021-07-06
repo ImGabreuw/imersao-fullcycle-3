@@ -3,8 +3,9 @@ package main
 import (
 	"database/sql"
 	"fmt"
-	"github.com/imgabreuw/codebank/domain"
+	"github.com/imgabreuw/codebank/infrastructure/kafka"
 	"github.com/imgabreuw/codebank/infrastructure/repository"
+	"github.com/imgabreuw/codebank/infrastructure/server"
 	"github.com/imgabreuw/codebank/usecase"
 	_ "github.com/lib/pq"
 	"log"
@@ -14,27 +15,22 @@ func main() {
 	db := setupDb()
 	defer db.Close()
 
-	creditCard := domain.NewCreditCard()
-
-	creditCard.Number = "1234"
-	creditCard.Name = "Wesley"
-	creditCard.ExpirationMonth = 2021
-	creditCard.ExpirationMonth = 7
-	creditCard.CVV = 123
-	creditCard.Limit = 1000
-	creditCard.Balance = 0
-
-	repo := repository.NewTransactionRepositoryDb(db)
-	err := repo.CreateCreditCard(*creditCard)
-
-	if err != nil {
-		fmt.Println(err)
-	}
+	producer := setupKafkaProducer()
+	processTransactionUseCase := setupTransactionUsaCase(db, producer)
+	serveGrpc(processTransactionUseCase)
 }
 
-func setupTransactionUsaCase(db *sql.DB) usecase.UseCaseTransaction {
+func setupKafkaProducer() kafka.KafkaProducer {
+	producer := kafka.NewKafkaProducer()
+	producer.SetupProducer("host.docker.internal.9094")
+
+	return producer
+}
+
+func setupTransactionUsaCase(db *sql.DB, producer kafka.KafkaProducer) usecase.UseCaseTransaction {
 	transactionRepository := repository.NewTransactionRepositoryDb(db)
 	useCase := usecase.NewUseCaseTransaction(transactionRepository)
+	useCase.KafkaProducer = producer
 
 	return useCase
 }
@@ -57,3 +53,27 @@ func setupDb() *sql.DB {
 
 	return db
 }
+
+func serveGrpc(processTransactionUseCase usecase.UseCaseTransaction) {
+	grpcServer := server.NewGRPCServer()
+	grpcServer.ProcessTransactionUseCase = processTransactionUseCase
+	fmt.Println("Rodando gRPC Server")
+	grpcServer.Serve()
+}
+
+//creditCard := domain.NewCreditCard()
+//
+//creditCard.Number = "1234"
+//creditCard.Name = "Wesley"
+//creditCard.ExpirationMonth = 2021
+//creditCard.ExpirationMonth = 7
+//creditCard.CVV = 123
+//creditCard.Limit = 1000
+//creditCard.Balance = 0
+//
+//repo := repository.NewTransactionRepositoryDb(db)
+//err := repo.CreateCreditCard(*creditCard)
+//
+//if err != nil {
+//fmt.Println(err)
+//}
