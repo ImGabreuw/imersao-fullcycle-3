@@ -1,9 +1,15 @@
 FROM golang:1.16
 
-ENV PATH="/go/bin:${PATH}"
-ENV GO111MODULE=on
-ENV CGO_ENABLED=1
-
 WORKDIR /go/src
 
-CMD ["tail", "-f", "/dev/null"]
+COPY go.mod .
+
+RUN go mod download
+
+COPY . .
+
+RUN go build -o main .
+
+EXPOSE 8000
+
+CMD ["./main"]
